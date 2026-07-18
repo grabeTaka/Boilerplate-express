@@ -121,3 +121,14 @@ npm run start:dev
 ```bash
 npm i dotenv
 ```
+
+---
+
+## Links de apoio
+
+Referências para consultar caso trave em algum passo:
+
+- **Express (docs oficiais, v5):** https://expressjs.com/en/5x/api/
+- **Swagger + Express + TypeScript (tutorial):** https://medium.com/@devsfutureinc/how-to-create-a-express-typescript-swagger-node-js-template-6387a2a02afd
+- **tsx (docs oficiais):** https://tsx.hirok.io/
+- **Iniciar projeto Node + Express + TypeScript (guia genérico):** https://dev.to/carlosorioli/iniciando-um-projeto-nodejs-express-com-typescript-4bfl
