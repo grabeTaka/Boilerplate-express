@@ -1,21 +1,28 @@
 {
   "name": "boilerplate-express",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node ./bin/www",
+    "start:dev": "tsx watch ./src/server.ts"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/grabeTaka/Boilerplate-express.git"
+  "dependencies": {
+    "cookie-parser": "~1.4.4",
+    "debug": "~2.6.9",
+    "dotenv": "^17.4.2",
+    "express": "~4.16.1",
+    "http-errors": "~1.6.3",
+    "jade": "~1.11.0",
+    "morgan": "~1.9.1",
+    "swagger-jsdoc": "^6.3.0",
+    "swagger-ui-dist": "^5.32.9",
+    "swagger-ui-express": "^5.0.1"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "bugs": {
-    "url": "https://github.com/grabeTaka/Boilerplate-express/issues"
-  },
-  "homepage": "https://github.com/grabeTaka/Boilerplate-express#readme"
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/swagger-jsdoc": "^6.0.4",
+    "@types/swagger-ui-express": "^4.1.8",
+    "tsx": "^4.23.1"
+  }
 }
