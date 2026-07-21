@@ -215,6 +215,65 @@ docker compose up --build
 
 ---
 
+## Passo 7 — Knex (query builder + migrations)
+
+Instale o Knex e o driver do Postgres:
+
+```bash
+npm i knex pg
+npm i -D @types/pg
+```
+
+**`knexfile.ts`** (na raiz do projeto)
+
+```ts
+import 'dotenv/config';
+import type { Knex } from "knex";
+
+const config: { [key: string]: Knex.Config } = {
+  development: {
+    client: "pg",
+    connection: {
+      host: process.env.DB_HOST ?? "localhost",
+      port: Number(process.env.DB_PORT ?? 5432),
+      user: process.env.DB_USER ?? "root",
+      password: process.env.DB_PASSWORD ?? "root",
+      database: process.env.DB_NAME ?? "express_db",
+    },
+    pool: {
+      min: 2,
+      max: 10,
+    },
+    migrations: {
+      tableName: "knex_migrations",
+    },
+  },
+}
+
+export default config;
+```
+
+**Pontos que costumam travar:**
+
+- **ESM:** como o projeto usa `"type": "module"`, o export **precisa** ser `export default config;`. Usar `module.exports = config;` quebra com `ReferenceError: module is not defined in ES module scope`.
+- **`import 'dotenv/config'`** no topo garante que o knexfile enxergue o `.env`.
+- **`exactOptionalPropertyTypes`** (ligado no `tsconfig`) rejeita `undefined` em campos opcionais. Como `process.env.X` é `string | undefined`, use `?? "valor"` nos campos pra garantir `string`.
+- **Host do banco:** no host use `localhost`; dentro do Docker o Postgres é o serviço `db`. Resolva com a env `DB_HOST` — adicione `- DB_HOST=db` no `environment:` do serviço `app` (Passo 6). No host, sem `DB_HOST`, cai no fallback `localhost`.
+
+> As mensagens `Failed to load external module ts-node/register…` são inofensivas — o Node 24 carrega `.ts` nativamente, então o Knex ignora esses loaders antigos e segue.
+
+**Criar e rodar migrations:**
+
+```bash
+npx knex migrate:make add_products_table -x ts   # cria a migration em .ts
+npx knex migrate:latest                           # aplica as migrations pendentes
+npx knex migrate:down                             # desfaz a última migration
+```
+
+> Precisa do Postgres no ar. Se aparecer `connect ECONNREFUSED 127.0.0.1:5432`, o banco não está de pé — suba com `docker compose up -d db` (Passo 6) antes.
+
+---
+
 ## Links de apoio
 
 Referências para consultar caso trave em algum passo:
@@ -223,4 +282,6 @@ Referências para consultar caso trave em algum passo:
 - **Swagger + Express + TypeScript (tutorial):** https://medium.com/@devsfutureinc/how-to-create-a-express-typescript-swagger-node-js-template-6387a2a02afd
 - **tsx (docs oficiais):** https://tsx.hirok.io/
 - **Docker Compose — referência de `services`:** https://docs.docker.com/reference/compose-file/services/
+- **Knex.js (docs oficiais):** https://knexjs.org/guide/
+- **Tutorial Knex.js com TypeScript + PostgreSQL (LuizTools):** https://www.luiztools.com.br/post/tutorial-de-knex-js-com-typescript-postgresql/
 - **Iniciar projeto Node + Express + TypeScript (guia genérico):** https://dev.to/carlosorioli/iniciando-um-projeto-nodejs-express-com-typescript-4bfl

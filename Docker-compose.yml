@@ -1,0 +1,58 @@
+# Bloco que declara os containers da aplicação
+services:
+
+  # Aplicação Express
+  app:
+    # Constrói a imagem a partir do Dockerfile no diretório atual
+    build: .
+    container_name: express_app
+
+    # HOST:CONTAINER
+    ports:
+      - "${PORT}:${PORT}"
+
+    volumes:
+      # Bind mount do código — permite hot reload
+      - .:/usr/src/app
+      # Volume anônimo — protege o node_modules da imagem
+      - /usr/src/app/node_modules
+
+    environment:
+      - NODE_ENV=${NODE_ENV}
+      - PORT=${PORT}
+      # host = "db" (nome do serviço), porta interna sempre 5432
+      - DATABASE_URL=${DATABASE_URL}
+
+    # Só sobe depois que o Postgres estiver aceitando conexões
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Banco de dados
+  db:
+    image: postgres:16-alpine
+    container_name: express_db
+    restart: unless-stopped
+
+    # Só necessário para acessar do host (DBeaver, psql)
+    ports:
+      - "5432:5432"
+
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+
+    volumes:
+      # Volume nomeado — dados sobrevivem a "docker compose down"
+      - pgdata:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  pgdata:
