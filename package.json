@@ -13,8 +13,6 @@
     "dotenv": "^17.4.2",
     "express": "~4.16.1",
     "http-errors": "~1.6.3",
-    "jade": "~1.11.0",
-    "morgan": "~1.9.1",
     "swagger-jsdoc": "^6.3.0",
     "swagger-ui-dist": "^5.32.9",
     "swagger-ui-express": "^5.0.1"
