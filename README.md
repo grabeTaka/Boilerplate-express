@@ -156,60 +156,53 @@ CMD ["npm", "run", "start:dev"]
 **`docker-compose.yml`**
 
 ```yaml
-# Bloco que declara todos os containers (serviços) da aplicação
 services:
 
-  # "app" é o serviço da API Express
   app:
-    build: .                       # constrói a imagem a partir do Dockerfile no diretório atual
-    container_name: express_app    # nome fixo do container (em vez do gerado automaticamente)
+    build: .
+    container_name: express_app
 
-    # Mapeamento de portas no formato HOST:CONTAINER
     ports:
-      - "${PORT}:${PORT}"          # expõe a porta do container no host (valor vem do .env)
+      - "${PORT}:${PORT}"
 
     volumes:
-      - .:/usr/src/app             # bind mount do código — permite hot reload sem rebuild
-      - /usr/src/app/node_modules  # volume anônimo — protege o node_modules da imagem
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
 
     environment:
-      - NODE_ENV=${NODE_ENV}       # ambiente de execução (development / production)
-      - PORT=${PORT}               # porta em que o Express escuta dentro do container
-      # host = "db" (nome do serviço), porta interna do Postgres sempre 5432
+      - NODE_ENV=${NODE_ENV}
+      - PORT=${PORT}
       - DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
 
     depends_on:
-      db:                          # só sobe depois que o serviço "db"...
-        condition: service_healthy # ...passar no healthcheck (aceitar conexões)
+      db:
+        condition: service_healthy
 
-  # "db" é o serviço do banco de dados
   db:
-    image: postgres:16-alpine      # imagem oficial do Postgres (variante Alpine, leve)
-    container_name: express_db     # nome fixo do container do banco
-    restart: unless-stopped        # reinicia sozinho, exceto se parado manualmente
+    image: postgres:16-alpine
+    container_name: express_db
+    restart: unless-stopped
 
     ports:
-      - "5432:5432"                # só necessário para acessar do host (DBeaver, psql)
+      - "5432:5432"
 
     environment:
-      - POSTGRES_USER=${DB_USER}       # usuário criado na inicialização do banco
-      - POSTGRES_DB=${DB_NAME}         # database criado na inicialização
-      - POSTGRES_PASSWORD=${DB_PASSWORD} # senha do usuário acima
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
 
     volumes:
-      - pgdata:/var/lib/postgresql/data  # volume nomeado — dados sobrevivem a "docker compose down"
+      - pgdata:/var/lib/postgresql/data
 
-    # Checa periodicamente se o Postgres já está pronto para conexões
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]  # comando de verificação
-      interval: 5s                 # intervalo entre cada checagem
-      timeout: 5s                  # tempo máximo de espera por checagem
-      retries: 5                   # tentativas antes de marcar como "unhealthy"
-      start_period: 10s            # carência inicial antes de começar a contar falhas
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
-# Declaração dos volumes nomeados usados acima
 volumes:
-  pgdata:                          # volume persistente dos dados do Postgres
+  pgdata:
 ```
 
 > As variáveis (`PORT`, `NODE_ENV`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`) vêm do `.env` do Passo 5.
