@@ -514,6 +514,145 @@ errorHandler  →  AppError usa seu status; qualquer outro vira 500
 
 ---
 
+## Passo 10 — Serviços externos (axios)
+
+Para consumir APIs de terceiros o boilerplate usa o **axios**. A ideia é a mesma do knex no repository: **uma instância única configurada num só lugar**, injetada nos services pelo construtor (Injeção de Dependência). Assim a regra de negócio não conhece o axios direto — fica testável e o transporte é trocável.
+
+Instale o axios:
+
+```bash
+npm i axios
+```
+
+### O cliente HTTP (`src/config/http.ts`)
+
+Centraliza a configuração da chamada externa numa instância criada com `axios.create`. Toda `baseURL`, `timeout` e headers padrão ficam aqui — os services só chamam `this.http.get('/rota')`:
+
+```ts
+// src/config/http.ts
+import 'dotenv/config';
+import axios, { type AxiosInstance } from 'axios';
+
+const httpClient: AxiosInstance = axios.create({
+  baseURL: process.env.EXTERNAL_API_URL ?? 'https://jsonplaceholder.typicode.com',
+  timeout: 5000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+export default httpClient;
+```
+
+**Por que uma instância (`axios.create`) e não o `axios` global:**
+
+- **`baseURL`** — os services usam só o caminho relativo (`/todos/1`); trocar o host da API externa é mexer em uma linha (ou no `.env`).
+- **`timeout`** — sem ele uma API externa lenta trava a requisição indefinidamente. 5s é um ponto de partida razoável.
+- **`headers`** — cabeçalhos padrão (`Content-Type`, e mais tarde tokens de auth) aplicados a todas as chamadas.
+- **`import 'dotenv/config'`** no topo garante que o `EXTERNAL_API_URL` seja lido do `.env` (mesmo modelo do `knexfile.ts` e do `src/config/database.ts`).
+
+> A `baseURL` cai num fallback (`jsonplaceholder.typicode.com`) quando `EXTERNAL_API_URL` não está definida — útil pra rodar o exemplo sem configurar nada.
+
+### O service que consome a API (`src/shared/service/`)
+
+O service recebe o `AxiosInstance` pelo construtor e traduz a resposta crua (`{ data }`) para o domínio. Tipar o retorno (`this.http.get<Todo>`) faz o axios devolver `data` já tipado:
+
+```ts
+// src/shared/service/index.ts
+import type { AxiosInstance } from 'axios';
+import type { Todo, TodoInput, TodoServiceInterface } from './interface.ts';
+
+export class TodoService implements TodoServiceInterface {
+    constructor(private readonly http: AxiosInstance) {}
+
+    async getTodo(id: number): Promise<Todo> {
+        const { data } = await this.http.get<Todo>(`/todos/${id}`);
+        return data;
+    }
+
+    async createTodo(data: TodoInput): Promise<Todo> {
+        const { data: created } = await this.http.post<Todo>('/todos', data);
+        return created;
+    }
+}
+```
+
+Uma **interface** define o formato do recurso externo e o contrato do service — os use cases dependem da interface, não da classe concreta:
+
+```ts
+// src/shared/service/interface.ts
+export interface Todo {
+    id: number;
+    userId: number;
+    title: string;
+    completed: boolean;
+}
+
+export type TodoInput = Omit<Todo, 'id'>;
+
+export interface TodoServiceInterface {
+    getTodo(id: number): Promise<Todo>;
+    createTodo(data: TodoInput): Promise<Todo>;
+}
+```
+
+### Ligando tudo (composition root)
+
+A instância única é criada uma vez e injetada no service — mesmo lugar onde o router é montado (como o knex é passado ao repository no Passo 8):
+
+```ts
+import httpClient from '../../config/http.ts';
+import { TodoService } from '../../shared/service/index.ts';
+
+const todoService = new TodoService(httpClient);
+```
+
+### Padrões comuns (pra quando o service crescer)
+
+**Query params** — o axios serializa o objeto `params` na URL (`?completed=true&_limit=10`):
+
+```ts
+this.http.get<Todo[]>('/todos', { params: { completed: true, _limit: 10 } });
+```
+
+**Auth por requisição / headers extras:**
+
+```ts
+this.http.get<Todo>(`/todos/${id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+});
+```
+
+**Tratando o erro e convertendo pro `AppError`** — o axios lança em status >= 400; `isAxiosError` dá acesso a `response.status`. Combina com o `errorHandler` do Passo 9:
+
+```ts
+import axios from 'axios';
+import { AppError } from '../middleware/errorHandler.ts';
+
+try {
+    const { data } = await this.http.get<Todo>(`/todos/${id}`);
+    return data;
+} catch (err) {
+    if (axios.isAxiosError(err) && err.response?.status === 404) {
+        throw new AppError(404, 'Todo not found');
+    }
+    throw new AppError(502, 'External service unavailable');
+}
+```
+
+**Header de auth pra todas as chamadas (interceptor)** — injeta o token antes de cada requisição, sem repetir em cada método:
+
+```ts
+httpClient.interceptors.request.use((config) => {
+    config.headers.Authorization = `Bearer ${process.env.EXTERNAL_API_TOKEN}`;
+    return config;
+});
+```
+
+> Lembre de adicionar `EXTERNAL_API_URL` (e um eventual `EXTERNAL_API_TOKEN`) ao `.env` do Passo 5.
+
+---
+
 ## Links de apoio
 
 Referências para consultar caso trave em algum passo:
@@ -523,5 +662,6 @@ Referências para consultar caso trave em algum passo:
 - **tsx (docs oficiais):** https://tsx.hirok.io/
 - **Docker Compose — referência de `services`:** https://docs.docker.com/reference/compose-file/services/
 - **Knex.js (docs oficiais):** https://knexjs.org/guide/
+- **Axios (docs oficiais):** https://axios-http.com/docs/intro
 - **Tutorial Knex.js com TypeScript + PostgreSQL (LuizTools):** https://www.luiztools.com.br/post/tutorial-de-knex-js-com-typescript-postgresql/
 - **Iniciar projeto Node + Express + TypeScript (guia genérico):** https://dev.to/carlosorioli/iniciando-um-projeto-nodejs-express-com-typescript-4bfl
