@@ -10,7 +10,7 @@ export interface ProductRow {
 export type ProductInput = Omit<Product, 'id' | 'created_at' | 'updated_at'>;
 
 export interface ProductFilters {
-    name?: string;
+    name?: string | undefined;
 }
 
 export class ProductFactory {

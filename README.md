@@ -395,6 +395,125 @@ const { rows } = await this.knex.raw('SELECT * FROM products WHERE name = ?', [n
 
 ---
 
+## Passo 9 — Middlewares (tratamento de erros e auth)
+
+Os middlewares ficam em `src/shared/middleware/` e resolvem duas coisas: **centralizar o tratamento de erros** (em vez de repetir `try/catch` em toda rota) e **rodar verificações antes da rota** (ex: exigir autenticação). Um middleware é só uma função `(req, res, next)`; chamar `next()` passa a bola pro próximo, e `next(err)` pula direto pro tratamento de erro.
+
+### Middleware de erro (`errorHandler.ts`)
+
+O error handler do Express é reconhecido pela assinatura de **4 parâmetros** (`err, req, res, next`) e precisa ser o **último** `app.use`, depois de todas as rotas. Junto vem o `AppError`, pra lançar erros com status HTTP significativo:
+
+```ts
+// src/shared/middleware/errorHandler.ts
+export class AppError extends Error {
+    constructor(public readonly statusCode: number, message: string) {
+        super(message);
+        this.name = "AppError";
+    }
+}
+
+export const errorHandler = (err, _req, res, _next) => {
+    if (err instanceof AppError) {
+        return res.status(err.statusCode).json({ message: err.message });
+    }
+    console.error(err);
+    return res.status(500).json({ message: "Internal server error" });
+};
+```
+
+Registrado no `app.ts`, **por último**:
+
+```ts
+app.use('/api/products', productRouter)
+app.use(errorHandler) // depois de todas as rotas
+```
+
+Agora as camadas de negócio podem lançar erros com significado, sem tratar status na rota:
+
+```ts
+const product = await this.repository.findOne(id);
+if (!product) throw new AppError(404, "Product not found");
+// cliente recebe: 404 { "message": "Product not found" }
+```
+
+### Encaminhando erros async (`asyncHandler.ts`)
+
+No **Express 4**, erros de handlers `async` **não chegam sozinhos** ao error handler — só o que passa por `next(err)`. O `asyncHandler` é um wrapper que captura a rejeição da Promise e faz esse `next()` automaticamente, dispensando `try/catch` nas rotas:
+
+```ts
+// src/shared/middleware/asyncHandler.ts
+export const asyncHandler =
+    (handler) =>
+    (req, res, next) => {
+        Promise.resolve(handler(req, res, next)).catch(next);
+    };
+```
+
+Uso na rota — só o caminho feliz; qualquer erro cai no `errorHandler`:
+
+```ts
+productRouter.get('/:id', asyncHandler(async (req, res) => {
+    const result = await productController.findOne(Number(req.params.id));
+    res.status(200).json(result);
+}));
+```
+
+> No Express 5 isso passou a ser automático e o wrapper deixaria de ser necessário; como o runtime aqui é o 4, ele ainda é.
+
+### Middleware que roda antes da rota (`ensureAuth.ts`)
+
+Verifica se a requisição traz o header `Authorization`. Se não vier, encaminha um `401` pro error handler; se vier, segue com `next()`. Como é síncrono, **não** precisa do `asyncHandler`:
+
+```ts
+// src/shared/middleware/ensureAuth.ts
+export const ensureAuth = (req, _res, next) => {
+    const { authorization } = req.headers;
+    if (!authorization) {
+        return next(new AppError(401, "Missing authorization header"));
+    }
+    return next();
+};
+```
+
+Dá pra aplicar em três granularidades:
+
+```ts
+productRouter.get('/', ensureAuth, handler); // 1. só nesta rota
+productRouter.use(ensureAuth);               // 2. em todas as rotas do router
+app.use(ensureAuth);                         // 3. na app inteira (cuidado com rotas públicas, ex: /api/health)
+```
+
+No projeto ele está no nível do router de produtos (opção 2). Teste rápido:
+
+```bash
+curl -i http://localhost:3000/api/products                          # 401
+curl -i http://localhost:3000/api/products -H "Authorization: Bearer abc123"  # passa
+```
+
+> Ele só verifica a **presença** do header — não valida o token. Validar (formato `Bearer`, JWT, etc.) é o passo seguinte quando for implementar autenticação de verdade.
+
+**O fluxo completo de um erro:**
+
+```
+rota async lança / ensureAuth barra
+      ↓
+asyncHandler (.catch) ou next(new AppError(...))
+      ↓
+next(err)  →  Express detecta "next com argumento"
+      ↓
+errorHandler  →  AppError usa seu status; qualquer outro vira 500
+```
+
+**Links úteis (como construir um middleware):**
+
+- **Escrever middlewares (guia oficial):** https://expressjs.com/en/guide/writing-middleware.html
+- **Usar/registrar middlewares (guia oficial):** https://expressjs.com/en/guide/using-middleware.html
+- **Tratamento de erros no Express (guia oficial):** https://expressjs.com/en/guide/error-handling.html
+- **API de `app.use` / `router` (referência v5):** https://expressjs.com/en/5x/api/#app.use
+- **`next()` e o fluxo de handlers (referência v5):** https://expressjs.com/en/5x/api/#req
+
+---
+
 ## Links de apoio
 
 Referências para consultar caso trave em algum passo:
