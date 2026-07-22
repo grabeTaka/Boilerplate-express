@@ -1,3 +1,5 @@
-import { FindAllUseCase }  from './findAllUseCase.ts'
-
-export default FindAllUseCase;
+export { FindAllUseCase } from './findAllUseCase.ts'
+export { FindOneUseCase } from './findOneUseCase.ts'
+export { CreateUseCase } from './createUseCase.ts'
+export { UpdateUseCase } from './updateUseCase.ts'
+export { DeleteUseCase } from './deleteUseCase.ts'

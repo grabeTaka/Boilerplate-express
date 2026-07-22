@@ -1,0 +1,27 @@
+info:
+  name: update
+  type: http
+  seq: 4
+
+http:
+  method: PUT
+  url: http://localhost:3333/api/products/1
+  body: json
+  params:
+    - name: id
+      value: "1"
+      type: path
+      enabled: true
+  auth: inherit
+
+body:
+  json: |-
+    {
+      "name": "Updated product"
+    }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

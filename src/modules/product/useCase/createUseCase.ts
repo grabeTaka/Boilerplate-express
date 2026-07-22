@@ -1,14 +1,14 @@
 import { Product } from "../entity/index.ts";
-import { ProductFilters } from "../factory/index.ts";
+import { ProductInput } from "../factory/index.ts";
 import {ProductRepositoryInterface} from '../repository/interface.ts'
-export class FindAllUseCase {
+export class CreateUseCase {
     private repository: ProductRepositoryInterface;
 
     constructor (repository: ProductRepositoryInterface) {
         this.repository = repository;
     }
 
-    async execute (filters?: ProductFilters): Promise<Product[]> {
-        return this.repository.findAll(filters)
+    async execute (data: ProductInput): Promise<Product> {
+        return this.repository.create(data)
     }
 }
